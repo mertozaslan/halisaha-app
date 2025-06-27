@@ -398,7 +398,6 @@ class HalisahaApp {
         
         // Reset form
         document.getElementById('evaluationForm').reset();
-        document.getElementById('comment').value = '';
         
         // Reset sliders to default value
         const sliders = document.querySelectorAll('.rating-slider');
@@ -459,7 +458,6 @@ class HalisahaApp {
             attack: parseInt(formData.get('attack')),
             stamina: parseInt(formData.get('stamina')),
             teamwork: parseInt(formData.get('teamwork')),
-            comment: formData.get('comment'),
             date: new Date().toISOString().split('T')[0],
             createdAt: new Date().toISOString()
         };
@@ -534,7 +532,6 @@ class HalisahaApp {
                                 <span>Kondisyon: ${evaluation.stamina}</span>
                                 <span>Takım Oyunu: ${evaluation.teamwork}</span>
                             </div>
-                            ${evaluation.comment ? `<div class="eval-comment">"${evaluation.comment}"</div>` : ''}
                         </div>
                     </div>
                 `;
