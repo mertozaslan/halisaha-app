@@ -30,22 +30,45 @@
     <div class="app">
         <header class="header">
             <div class="container">
-                <h1><i class="fas fa-futbol"></i> Halısaha Takım</h1>
-                <p>Oyuncu Performans Değerlendirme Sistemi</p>
+                <h1><i class="fas fa-futbol"></i> Halısaha Performans Sistemi</h1>
+                <p>Profesyonel Oyuncu Değerlendirme Platformu</p>
             </div>
         </header>
 
         <div class="container">
+            <!-- Takım Sekmeri -->
+            <div class="team-tabs">
+                <button class="team-tab active" data-team="1">
+                    <i class="fas fa-users"></i> 1. Takım
+                </button>
+                <button class="team-tab" data-team="2">
+                    <i class="fas fa-users"></i> 2. Takım
+                </button>
+                <button class="btn btn-primary" id="addPlayerBtn">
+                    <i class="fas fa-plus"></i> Oyuncu Ekle
+                </button>
+            </div>
+
             <!-- Oyuncu Listesi -->
             <section class="players-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-users"></i> Oyuncular</h2>
-                    <button class="btn btn-primary" id="addPlayerBtn">
-                        <i class="fas fa-plus"></i> Oyuncu Ekle
-                    </button>
+                <div class="team-players" id="team1Players">
+                    <div class="team-header">
+                        <h2><i class="fas fa-shield-alt"></i> 1. Takım Oyuncuları</h2>
+                        <span class="player-count" id="team1Count">0 oyuncu</span>
+                    </div>
+                    <div class="players-grid" id="team1Grid">
+                        <!-- 1. Takım oyuncuları buraya eklenecek -->
+                    </div>
                 </div>
-                <div class="players-grid" id="playersGrid">
-                    <!-- Oyuncular dinamik olarak buraya eklenecek -->
+                
+                <div class="team-players" id="team2Players" style="display: none;">
+                    <div class="team-header">
+                        <h2><i class="fas fa-shield-alt"></i> 2. Takım Oyuncuları</h2>
+                        <span class="player-count" id="team2Count">0 oyuncu</span>
+                    </div>
+                    <div class="players-grid" id="team2Grid">
+                        <!-- 2. Takım oyuncuları buraya eklenecek -->
+                    </div>
                 </div>
             </section>
 
@@ -60,6 +83,9 @@
                 <div class="evaluation-form">
                     <div class="player-info">
                         <h3 id="evaluatingPlayerName"></h3>
+                        <div class="player-team-info">
+                            <span id="evaluatingPlayerTeam" class="team-badge"></span>
+                        </div>
                         <div class="rating-summary">
                             <span class="current-rating" id="currentRating">0.0</span>
                             <div class="stars" id="starDisplay"></div>
@@ -69,7 +95,7 @@
                     <form id="evaluationForm">
                         <div class="rating-categories">
                             <div class="category">
-                                <label>Pas Kalitesi</label>
+                                <label><i class="fas fa-exchange-alt"></i> Pas Kalitesi</label>
                                 <div class="rating-input">
                                     <input type="range" name="passing" min="1" max="10" value="5" class="rating-slider">
                                     <span class="rating-value">5</span>
@@ -77,7 +103,7 @@
                             </div>
                             
                             <div class="category">
-                                <label>Savunma</label>
+                                <label><i class="fas fa-shield"></i> Savunma</label>
                                 <div class="rating-input">
                                     <input type="range" name="defense" min="1" max="10" value="5" class="rating-slider">
                                     <span class="rating-value">5</span>
@@ -85,7 +111,7 @@
                             </div>
                             
                             <div class="category">
-                                <label>Hücum</label>
+                                <label><i class="fas fa-bullseye"></i> Hücum</label>
                                 <div class="rating-input">
                                     <input type="range" name="attack" min="1" max="10" value="5" class="rating-slider">
                                     <span class="rating-value">5</span>
@@ -93,7 +119,7 @@
                             </div>
                             
                             <div class="category">
-                                <label>Kondisyon</label>
+                                <label><i class="fas fa-running"></i> Kondisyon</label>
                                 <div class="rating-input">
                                     <input type="range" name="stamina" min="1" max="10" value="5" class="rating-slider">
                                     <span class="rating-value">5</span>
@@ -101,7 +127,7 @@
                             </div>
                             
                             <div class="category">
-                                <label>Takım Oyunu</label>
+                                <label><i class="fas fa-handshake"></i> Takım Oyunu</label>
                                 <div class="rating-input">
                                     <input type="range" name="teamwork" min="1" max="10" value="5" class="rating-slider">
                                     <span class="rating-value">5</span>
@@ -110,8 +136,8 @@
                         </div>
                         
                         <div class="comment-section">
-                            <label for="comment">Yorum</label>
-                            <textarea id="comment" name="comment" placeholder="Bugünkü performansı hakkında yorumun..."></textarea>
+                            <label for="comment"><i class="fas fa-comment"></i> Performans Yorumu</label>
+                            <textarea id="comment" name="comment" placeholder="Oyuncunun bugünkü performansı hakkında detaylı yorumunuz..."></textarea>
                         </div>
                         
                         <div class="form-actions">
@@ -132,17 +158,10 @@
                     </button>
                 </div>
                 <div class="weekly-player-card" id="weeklyPlayerCard">
-                    <p>Henüz haftanın oyuncusu seçilmedi</p>
-                </div>
-            </section>
-
-            <!-- İstatistikler -->
-            <section class="stats-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-chart-bar"></i> Takım İstatistikleri</h2>
-                </div>
-                <div class="stats-grid" id="statsGrid">
-                    <!-- İstatistikler dinamik olarak buraya eklenecek -->
+                    <div class="empty-state">
+                        <i class="fas fa-trophy"></i>
+                        <p>Henüz haftanın oyuncusu seçilmedi</p>
+                    </div>
                 </div>
             </section>
         </div>
@@ -151,28 +170,79 @@
         <div class="modal" id="addPlayerModal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>Yeni Oyuncu Ekle</h3>
+                    <h3><i class="fas fa-user-plus"></i> Yeni Oyuncu Ekle</h3>
                     <button class="modal-close" id="closeAddPlayerModal">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <form id="addPlayerForm">
+                
+                <!-- Ekleme Modu Seçimi -->
+                <div class="add-mode-tabs">
+                    <button class="add-mode-tab active" data-mode="single">
+                        <i class="fas fa-user"></i> Tekli Ekleme
+                    </button>
+                    <button class="add-mode-tab" data-mode="bulk">
+                        <i class="fas fa-users"></i> Toplu Ekleme
+                    </button>
+                </div>
+
+                <!-- Tekli Ekleme Formu -->
+                <form id="addPlayerForm" class="add-form">
                     <div class="form-group">
-                        <label for="playerName">Oyuncu Adı</label>
-                        <input type="text" id="playerName" name="playerName" required>
+                        <label for="playerName"><i class="fas fa-user"></i> Oyuncu Adı</label>
+                        <input type="text" id="playerName" name="playerName" required placeholder="Oyuncu adını girin">
                     </div>
                     <div class="form-group">
-                        <label for="playerPosition">Pozisyon</label>
-                        <select id="playerPosition" name="playerPosition">
-                            <option value="Kaleci">Kaleci</option>
-                            <option value="Defans">Defans</option>
-                            <option value="Orta Saha">Orta Saha</option>
-                            <option value="Forvet">Forvet</option>
+                        <label for="playerTeam"><i class="fas fa-users"></i> Takım</label>
+                        <select id="playerTeam" name="playerTeam" required>
+                            <option value="1">1. Takım</option>
+                            <option value="2">2. Takım</option>
                         </select>
+                        <small class="team-hint">Aktif takım otomatik seçildi</small>
                     </div>
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" id="cancelAddPlayer">İptal</button>
-                        <button type="submit" class="btn btn-primary">Ekle</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Ekle
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Toplu Ekleme Formu -->
+                <form id="addBulkPlayersForm" class="add-form" style="display: none;">
+                    <div class="form-group">
+                        <label for="bulkPlayerNames">
+                            <i class="fas fa-users"></i> Oyuncu Listesi
+                            <span class="label-hint">(Her satıra bir oyuncu adı)</span>
+                        </label>
+                        <textarea id="bulkPlayerNames" name="bulkPlayerNames" required 
+                                placeholder="Ahmet&#10;Mehmet&#10;Can&#10;Ali&#10;Veli" rows="8"></textarea>
+                        <small class="form-help">
+                            <i class="fas fa-info-circle"></i> 
+                            Her satıra bir oyuncu adı yazın. Boş satırlar göz ardı edilir.
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label for="bulkPlayerTeam"><i class="fas fa-users"></i> Takım</label>
+                        <select id="bulkPlayerTeam" name="bulkPlayerTeam" required>
+                            <option value="1">1. Takım</option>
+                            <option value="2">2. Takım</option>
+                        </select>
+                        <small class="team-hint">Tüm oyuncular bu takıma eklenecek</small>
+                    </div>
+                    <div class="bulk-preview" id="bulkPreview" style="display: none;">
+                        <h4><i class="fas fa-eye"></i> Önizleme</h4>
+                        <div class="preview-list" id="previewList"></div>
+                        <div class="preview-summary" id="previewSummary"></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelBulkAdd">İptal</button>
+                        <button type="button" class="btn btn-info" id="previewBulkBtn">
+                            <i class="fas fa-eye"></i> Önizleme
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-plus-circle"></i> Toplu Ekle
+                        </button>
                     </div>
                 </form>
             </div>
@@ -182,7 +252,7 @@
         <div class="modal" id="weeklyPlayerModal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>Haftanın Oyuncusunu Seç</h3>
+                    <h3><i class="fas fa-crown"></i> Haftanın Oyuncusunu Seç</h3>
                     <button class="modal-close" id="closeWeeklyPlayerModal">
                         <i class="fas fa-times"></i>
                     </button>
@@ -192,10 +262,39 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal: Toplu Oyuncu Ekleme Onayı -->
+        <div class="modal" id="bulkConfirmModal">
+            <div class="modal-content confirmation-modal">
+                <div class="modal-header confirm-header">
+                    <h3><i class="fas fa-users-plus"></i> Toplu Oyuncu Ekleme</h3>
+                </div>
+                <div class="confirm-content">
+                    <div class="confirm-icon">
+                        <i class="fas fa-question-circle"></i>
+                    </div>
+                    <div class="confirm-message">
+                        <h4 id="confirmTitle">Oyuncular eklensin mi?</h4>
+                        <p id="confirmDescription">Seçilen oyuncular takıma eklenecek.</p>
+                        <div class="confirm-details" id="confirmDetails">
+                            <!-- Detaylar buraya eklenecek -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions confirm-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBulkConfirm">
+                        <i class="fas fa-times"></i> İptal
+                    </button>
+                    <button type="button" class="btn btn-success" id="proceedBulkAdd">
+                        <i class="fas fa-check"></i> Evet, Ekle
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Firebase ve App Scripts -->
-    <script type="module" src="firebase-config.js"></script>
-    <script type="module" src="app.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
 </body>
 </html> 

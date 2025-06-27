@@ -1,25 +1,13 @@
-// Firebase imports
-import { db } from './firebase-config.js';
+// Firebase compat version kullanıyoruz - global window.db üzerinden erişim
 
 class HalisahaApp {
     constructor() {
-        // Google Sheets Configuration
-        this.SHEET_ID = '1upqhrZcw8BppgkytzUuzYjgNDJ-Y_B1K'; // Bu değeri kendi Google Sheets ID'nizle değiştirin
-        this.API_KEY = 'AIzaSyB_cfuHruYola4wXJ6Rf66lOie0ebkevY8'; // Bu değeri kendi API Key'inizle değiştirin
-        this.WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyo_IQkZwC9IVO6Jul9fg8yCI5P9cSDDHQfQjOXKvHP9DccGV07woW3YAm537PBq7m5/exec'; // Google Apps Script Web App URL'i
-        this.SHEET_RANGES = {
-            players: 'Oyuncular!A:H',
-            evaluations: 'Degerlendirmeler!A:I',
-            weeklyPlayers: 'HaftaninOyuncusu!A:D'
-        };
-        
         this.players = [];
         this.evaluations = [];
         this.weeklyPlayers = [];
         this.currentPlayer = null;
-        
-        // Firebase Configuration
-        this.db = db;
+        this.activeTeam = 1; // Aktif takım sekmesi
+        this.userSession = this.getUserSession(); // Kullanıcı oturumu
         
         this.init();
     }
@@ -28,65 +16,8 @@ class HalisahaApp {
         this.bindEvents();
         await this.loadData();
         this.renderPlayers();
-        this.renderStats();
         this.renderWeeklyPlayer();
-    }
-
-    // Google Sheets API Methods
-    async makeAPIRequest(range) {
-        // CSV export kullanarak CORS bypass
-        const sheetName = range.split('!')[0];
-        const csvUrl = `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
-        
-        try {
-            const response = await fetch(csvUrl);
-            const csvText = await response.text();
-            const rows = this.parseCSV(csvText);
-            return rows;
-        } catch (error) {
-            console.error('CSV Request Error:', error);
-            return this.getLocalStorageData(range);
-        }
-    }
-
-    parseCSV(csvText) {
-        const rows = [];
-        const lines = csvText.split('\n');
-        
-        for (const line of lines) {
-            if (line.trim()) {
-                // Basit CSV parse (quotes'ları handle eder)
-                const row = line.split(',').map(cell => 
-                    cell.replace(/^"|"$/g, '').replace(/""/g, '"')
-                );
-                rows.push(row);
-            }
-        }
-        return rows;
-    }
-
-    async updateSheet(action, data) {
-        try {
-            console.log(`${action} işlemi localStorage'a kaydediliyor...`);
-            
-            // localStorage'a kaydet
-            const key = action;
-            const existing = JSON.parse(localStorage.getItem(key) || '[]');
-            existing.push(data);
-            localStorage.setItem(key, JSON.stringify(existing));
-            
-            console.log('Veri başarıyla localStorage\'e kaydedildi');
-            return true;
-        } catch (error) {
-            console.error('LocalStorage yazma hatası:', error);
-            return false;
-        }
-    }
-
-    getLocalStorageData(range) {
-        const key = range.split('!')[0];
-        const stored = localStorage.getItem(key);
-        return stored ? JSON.parse(stored) : [];
+        this.updateTeamCounts();
     }
 
     // Firebase Methods
@@ -95,21 +26,21 @@ class HalisahaApp {
             console.log('Firebase\'den veri yükleniyor...');
             
             // Load players - compat API
-            const playersSnapshot = await this.db.collection('players').get();
+            const playersSnapshot = await window.db.collection('players').get();
             this.players = [];
             playersSnapshot.forEach((doc) => {
                 this.players.push({ id: doc.id, ...doc.data() });
             });
 
             // Load evaluations - compat API
-            const evaluationsSnapshot = await this.db.collection('evaluations').get();
+            const evaluationsSnapshot = await window.db.collection('evaluations').get();
             this.evaluations = [];
             evaluationsSnapshot.forEach((doc) => {
                 this.evaluations.push({ id: doc.id, ...doc.data() });
             });
 
             // Load weekly players - compat API
-            const weeklySnapshot = await this.db.collection('weeklyPlayers').get();
+            const weeklySnapshot = await window.db.collection('weeklyPlayers').get();
             this.weeklyPlayers = [];
             weeklySnapshot.forEach((doc) => {
                 this.weeklyPlayers.push({ id: doc.id, ...doc.data() });
@@ -125,7 +56,7 @@ class HalisahaApp {
 
     async savePlayer(player) {
         try {
-            const docRef = await this.db.collection('players').add(player);
+            const docRef = await window.db.collection('players').add(player);
             console.log('Oyuncu Firebase\'e kaydedildi:', docRef.id);
             return docRef.id;
         } catch (error) {
@@ -136,7 +67,7 @@ class HalisahaApp {
 
     async saveEvaluationToFirebase(evaluation) {
         try {
-            const docRef = await this.db.collection('evaluations').add(evaluation);
+            const docRef = await window.db.collection('evaluations').add(evaluation);
             console.log('Değerlendirme Firebase\'e kaydedildi:', docRef.id);
             return docRef.id;
         } catch (error) {
@@ -147,7 +78,7 @@ class HalisahaApp {
 
     async updatePlayerInFirebase(playerId, playerData) {
         try {
-            await this.db.collection('players').doc(playerId).update(playerData);
+            await window.db.collection('players').doc(playerId).update(playerData);
             console.log('Oyuncu Firebase\'de güncellendi:', playerId);
         } catch (error) {
             console.error('Firebase oyuncu güncelleme hatası:', error);
@@ -157,7 +88,7 @@ class HalisahaApp {
 
     async saveWeeklyPlayer(weeklyPlayer) {
         try {
-            const docRef = await this.db.collection('weeklyPlayers').add(weeklyPlayer);
+            const docRef = await window.db.collection('weeklyPlayers').add(weeklyPlayer);
             console.log('Haftanın oyuncusu Firebase\'e kaydedildi:', docRef.id);
             return docRef.id;
         } catch (error) {
@@ -171,17 +102,24 @@ class HalisahaApp {
         if (this.players.length === 0) {
             console.log('Demo veriler yükleniyor...');
             this.players = [
-                { id: 'demo1', name: 'Ahmet', position: 'Forvet', totalRating: 42, evaluationCount: 6, averageRating: 7.0, lastEvaluationDate: '2024-01-15', isActive: true },
-                { id: 'demo2', name: 'Mehmet', position: 'Defans', totalRating: 38, evaluationCount: 5, averageRating: 7.6, lastEvaluationDate: '2024-01-14', isActive: true },
-                { id: 'demo3', name: 'Can', position: 'Orta Saha', totalRating: 45, evaluationCount: 6, averageRating: 7.5, lastEvaluationDate: '2024-01-15', isActive: true }
+                { id: 'demo1', name: 'Ahmet', team: 1, totalRating: 42, evaluationCount: 6, averageRating: 7.0, lastEvaluationDate: '2024-01-15', isActive: true },
+                { id: 'demo2', name: 'Mehmet', team: 1, totalRating: 38, evaluationCount: 5, averageRating: 7.6, lastEvaluationDate: '2024-01-14', isActive: true },
+                { id: 'demo3', name: 'Can', team: 2, totalRating: 45, evaluationCount: 6, averageRating: 7.5, lastEvaluationDate: '2024-01-15', isActive: true }
             ];
         }
     }
 
     bindEvents() {
+        // Team tabs
+        document.querySelectorAll('.team-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                this.switchTeam(parseInt(e.target.dataset.team));
+            });
+        });
+
         // Add Player Modal
         document.getElementById('addPlayerBtn').addEventListener('click', () => {
-            this.showModal('addPlayerModal');
+            this.showAddPlayerModal();
         });
 
         document.getElementById('closeAddPlayerModal').addEventListener('click', () => {
@@ -192,10 +130,48 @@ class HalisahaApp {
             this.hideModal('addPlayerModal');
         });
 
-        // Add Player Form
+        document.getElementById('cancelBulkAdd').addEventListener('click', () => {
+            this.hideModal('addPlayerModal');
+        });
+
+        // Add Mode Tabs
+        document.querySelectorAll('.add-mode-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                this.switchAddMode(e.target.dataset.mode);
+            });
+        });
+
+        // Add Player Forms
         document.getElementById('addPlayerForm').addEventListener('submit', (e) => {
             e.preventDefault();
+            console.log('📝 Tekli oyuncu formu submit edildi');
             this.addPlayer();
+        });
+
+        document.getElementById('addBulkPlayersForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            console.log('📝 Toplu oyuncu formu submit edildi');
+            this.addBulkPlayers();
+        });
+
+        // Bulk Addition Features
+        document.getElementById('previewBulkBtn').addEventListener('click', () => {
+            console.log('👀 Önizleme butonu tıklandı');
+            this.previewBulkPlayers();
+        });
+
+        document.getElementById('bulkPlayerNames').addEventListener('input', () => {
+            // Önizlemeyi otomatik gizle metin değiştiğinde
+            document.getElementById('bulkPreview').style.display = 'none';
+        });
+
+        // Bulk Confirmation Modal
+        document.getElementById('cancelBulkConfirm').addEventListener('click', () => {
+            this.hideModal('bulkConfirmModal');
+        });
+
+        document.getElementById('proceedBulkAdd').addEventListener('click', () => {
+            this.processBulkAddition();
         });
 
         // Evaluation Form
@@ -233,6 +209,20 @@ class HalisahaApp {
         });
     }
 
+    switchTeam(teamNumber) {
+        this.activeTeam = teamNumber;
+        
+        // Update tab states
+        document.querySelectorAll('.team-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[data-team="${teamNumber}"]`).classList.add('active');
+        
+        // Show/hide team sections
+        document.getElementById('team1Players').style.display = teamNumber === 1 ? 'block' : 'none';
+        document.getElementById('team2Players').style.display = teamNumber === 2 ? 'block' : 'none';
+    }
+
     showModal(modalId) {
         const modal = document.getElementById(modalId);
         modal.classList.add('active');
@@ -250,16 +240,28 @@ class HalisahaApp {
     async addPlayer() {
         const formData = new FormData(document.getElementById('addPlayerForm'));
         const playerName = formData.get('playerName').trim();
-        const playerPosition = formData.get('playerPosition');
+        const playerTeam = parseInt(formData.get('playerTeam'));
 
         if (!playerName) {
             alert('Oyuncu adı gerekli!');
             return;
         }
 
+        // Aynı takımda aynı isimde oyuncu var mı kontrol et
+        const existingPlayer = this.players.find(p => 
+            p.isActive && 
+            p.team === playerTeam && 
+            p.name.toLowerCase() === playerName.toLowerCase()
+        );
+
+        if (existingPlayer) {
+            alert(`${playerName} isimli oyuncu ${playerTeam}. takımda zaten mevcut!`);
+            return;
+        }
+
         const newPlayer = {
             name: playerName,
-            position: playerPosition,
+            team: playerTeam,
             totalRating: 0,
             evaluationCount: 0,
             averageRating: 0,
@@ -277,9 +279,10 @@ class HalisahaApp {
             this.players.push(newPlayer);
             
             this.renderPlayers();
+            this.updateTeamCounts();
             this.hideModal('addPlayerModal');
             document.getElementById('addPlayerForm').reset();
-            this.showSuccessMessage('Oyuncu başarıyla eklendi!');
+            this.showSuccessMessage(`${playerName} ${playerTeam}. takıma başarıyla eklendi!`);
         } catch (error) {
             console.error('Oyuncu ekleme hatası:', error);
             alert('Oyuncu eklenirken hata oluştu. Tekrar deneyin.');
@@ -287,31 +290,61 @@ class HalisahaApp {
     }
 
     renderPlayers() {
-        const grid = document.getElementById('playersGrid');
-        grid.innerHTML = '';
-
-        this.players.filter(player => player.isActive).forEach(player => {
+        // 1. Takım
+        const team1Grid = document.getElementById('team1Grid');
+        const team1Players = this.players.filter(player => player.isActive && player.team === 1);
+        team1Grid.innerHTML = '';
+        team1Players.forEach(player => {
             const playerCard = this.createPlayerCard(player);
-            grid.appendChild(playerCard);
+            team1Grid.appendChild(playerCard);
         });
+
+        // 2. Takım
+        const team2Grid = document.getElementById('team2Grid');
+        const team2Players = this.players.filter(player => player.isActive && player.team === 2);
+        team2Grid.innerHTML = '';
+        team2Players.forEach(player => {
+            const playerCard = this.createPlayerCard(player);
+            team2Grid.appendChild(playerCard);
+        });
+    }
+
+    updateTeamCounts() {
+        const team1Count = this.players.filter(p => p.isActive && p.team === 1).length;
+        const team2Count = this.players.filter(p => p.isActive && p.team === 2).length;
+        
+        document.getElementById('team1Count').textContent = `${team1Count} oyuncu`;
+        document.getElementById('team2Count').textContent = `${team2Count} oyuncu`;
     }
 
     createPlayerCard(player) {
         const card = document.createElement('div');
         card.className = 'player-card';
+        
+        const teamBadge = player.team === 1 ? '1. Takım' : '2. Takım';
+        const teamClass = player.team === 1 ? 'team-1' : 'team-2';
+        
+        // Kullanıcının bugün bu oyuncuyu değerlendirip değerlendirmediğini kontrol et
+        const hasEvaluatedToday = this.hasUserEvaluatedPlayerToday(player.id);
+        const evaluateButtonClass = hasEvaluatedToday ? 'btn btn-secondary btn-small evaluate-btn' : 'btn btn-primary btn-small evaluate-btn';
+        const evaluateButtonText = hasEvaluatedToday ? '<i class="fas fa-check"></i> Değerlendirildi' : '<i class="fas fa-star"></i> Değerlendir';
+        const evaluateButtonDisabled = hasEvaluatedToday ? 'disabled' : '';
+        
         card.innerHTML = `
-            <div class="player-name">${player.name}</div>
-            <div class="player-position">${player.position}</div>
+            <div class="player-header">
+                <div class="player-name">${player.name}</div>
+                <span class="team-badge ${teamClass}">${teamBadge}</span>
+            </div>
             <div class="player-rating">
                 <span class="rating-number">${player.averageRating.toFixed(1)}</span>
                 <div class="stars">${this.generateStars(player.averageRating)}</div>
             </div>
             <div class="evaluation-info">
-                <small>${player.evaluationCount} değerlendirme</small>
+                <small><i class="fas fa-chart-line"></i> ${player.evaluationCount} değerlendirme</small>
             </div>
             <div class="player-actions">
-                <button class="btn btn-primary btn-small evaluate-btn">
-                    <i class="fas fa-star"></i> Değerlendir
+                <button class="${evaluateButtonClass}" ${evaluateButtonDisabled}>
+                    ${evaluateButtonText}
                 </button>
                 <button class="btn btn-secondary btn-small history-btn">
                     <i class="fas fa-history"></i> Geçmiş
@@ -320,9 +353,12 @@ class HalisahaApp {
         `;
 
         // Event listeners
-        card.querySelector('.evaluate-btn').addEventListener('click', () => {
-            this.showEvaluationForm(player);
-        });
+        const evaluateBtn = card.querySelector('.evaluate-btn');
+        if (!hasEvaluatedToday) {
+            evaluateBtn.addEventListener('click', () => {
+                this.showEvaluationForm(player);
+            });
+        }
 
         card.querySelector('.history-btn').addEventListener('click', () => {
             this.showPlayerHistory(player);
@@ -352,6 +388,12 @@ class HalisahaApp {
     showEvaluationForm(player) {
         this.currentPlayer = player;
         document.getElementById('evaluatingPlayerName').textContent = player.name;
+        
+        // Takım bilgisini göster
+        const teamBadge = document.getElementById('evaluatingPlayerTeam');
+        teamBadge.textContent = `${player.team}. Takım`;
+        teamBadge.className = `team-badge ${player.team === 1 ? 'team-1' : 'team-2'}`;
+        
         document.getElementById('evaluationSection').style.display = 'block';
         
         // Reset form
@@ -400,10 +442,18 @@ class HalisahaApp {
     async saveEvaluation() {
         if (!this.currentPlayer) return;
 
+        // Kullanıcının bugün bu oyuncuyu zaten değerlendirip değerlendirmediğini kontrol et
+        if (this.hasUserEvaluatedPlayerToday(this.currentPlayer.id)) {
+            alert('Bu oyuncuyu bugün zaten değerlendirmişsiniz!');
+            this.hideEvaluationForm();
+            return;
+        }
+
         const formData = new FormData(document.getElementById('evaluationForm'));
         const evaluation = {
             playerId: this.currentPlayer.id,
             playerName: this.currentPlayer.name,
+            userSession: this.userSession, // Kullanıcı oturumu ekle
             passing: parseInt(formData.get('passing')),
             defense: parseInt(formData.get('defense')),
             attack: parseInt(formData.get('attack')),
@@ -441,8 +491,7 @@ class HalisahaApp {
                 });
             }
             
-            this.renderPlayers();
-            this.renderStats();
+            this.renderPlayers(); // Player kartlarını yeniden render et (buton durumu için)
             this.hideEvaluationForm();
             this.showSuccessMessage('Değerlendirme başarıyla kaydedildi!');
         } catch (error) {
@@ -535,7 +584,6 @@ class HalisahaApp {
                     <div class="player-details">
                         <strong>${player.name}</strong>
                         <div class="player-stats">
-                            <span class="position">${player.position}</span>
                             <span class="rating">${player.averageRating.toFixed(1)}/10</span>
                             <span class="eval-count">${player.evaluationCount} değerlendirme</span>
                         </div>
@@ -611,52 +659,31 @@ class HalisahaApp {
             // Güncel oyuncu bilgisini al (ortalama değişmiş olabilir)
             const playerData = this.players.find(p => p.id === currentWeeklyPlayer.playerId);
             const currentRating = playerData ? playerData.averageRating : currentWeeklyPlayer.averageRating;
+            const teamBadge = playerData ? `${playerData.team}. Takım` : '';
+            const teamClass = playerData ? (playerData.team === 1 ? 'team-1' : 'team-2') : '';
             
             card.innerHTML = `
                 <div class="weekly-player-info">
-                    <h3><i class="fas fa-crown"></i> ${currentWeeklyPlayer.playerName}</h3>
-                    <p>Bu Haftanın Oyuncusu</p>
+                    <div class="player-header">
+                        <h3><i class="fas fa-crown"></i> ${currentWeeklyPlayer.playerName}</h3>
+                        <span class="team-badge ${teamClass}">${teamBadge}</span>
+                    </div>
+                    <p class="weekly-title">Bu Haftanın Oyuncusu</p>
                     <div class="weekly-player-stats">
                         <span class="weekly-rating">${currentRating ? currentRating.toFixed(1) : '0.0'}/10</span>
                         <div class="weekly-stars">${this.generateStars(currentRating || 0)}</div>
                     </div>
-                    <p><small>${currentWeeklyPlayer.date}</small></p>
+                    <p class="weekly-date"><small><i class="fas fa-calendar"></i> ${currentWeeklyPlayer.date}</small></p>
                 </div>
             `;
         } else {
-            card.innerHTML = '<p>Henüz haftanın oyuncusu seçilmedi</p>';
+            card.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-trophy"></i>
+                    <p>Henüz haftanın oyuncusu seçilmedi</p>
+                </div>
+            `;
         }
-    }
-
-    renderStats() {
-        const grid = document.getElementById('statsGrid');
-        
-        const totalPlayers = this.players.filter(p => p.isActive).length;
-        const totalEvaluations = this.evaluations.length;
-        const averageTeamRating = this.players
-            .filter(p => p.isActive && p.evaluationCount > 0)
-            .reduce((sum, p) => sum + p.averageRating, 0) / 
-            this.players.filter(p => p.isActive && p.evaluationCount > 0).length || 0;
-        const weeklyPlayersCount = this.weeklyPlayers.length;
-
-        grid.innerHTML = `
-            <div class="stat-card">
-                <div class="stat-value">${totalPlayers}</div>
-                <div class="stat-label">Aktif Oyuncu</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${totalEvaluations}</div>
-                <div class="stat-label">Toplam Değerlendirme</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${averageTeamRating.toFixed(1)}</div>
-                <div class="stat-label">Takım Ortalaması</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${weeklyPlayersCount}</div>
-                <div class="stat-label">Haftanın Oyuncusu</div>
-            </div>
-        `;
     }
 
     showSuccessMessage(message) {
@@ -669,14 +696,325 @@ class HalisahaApp {
         messageDiv.className = 'success-message';
         messageDiv.textContent = message;
         
-        document.querySelector('.container').insertBefore(
-            messageDiv, 
-            document.querySelector('section')
-        );
+        const container = document.querySelector('.container');
+        if (container) {
+            // Container'ın en başına ekle - basit ve güvenli
+            container.prepend(messageDiv);
+        } else {
+            // Container bulunamazsa body'e ekle
+            document.body.prepend(messageDiv);
+        }
 
         setTimeout(() => {
-            messageDiv.remove();
+            if (messageDiv.parentNode) {
+                messageDiv.remove();
+            }
         }, 3000);
+    }
+
+    // Kullanıcı oturumu oluştur/al
+    getUserSession() {
+        let sessionId = localStorage.getItem('halisaha_user_session');
+        if (!sessionId) {
+            // Benzersiz session ID oluştur
+            sessionId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('halisaha_user_session', sessionId);
+        }
+        return sessionId;
+    }
+
+    // Kullanıcının bugün bu oyuncuyu değerlendirip değerlendirmediğini kontrol et
+    hasUserEvaluatedPlayerToday(playerId) {
+        const today = new Date().toISOString().split('T')[0];
+        return this.evaluations.some(evaluation => 
+            evaluation.playerId === playerId && 
+            evaluation.date === today && 
+            evaluation.userSession === this.userSession
+        );
+    }
+
+    showAddPlayerModal() {
+        // Aktif takımı otomatik seç
+        document.getElementById('playerTeam').value = this.activeTeam.toString();
+        document.getElementById('bulkPlayerTeam').value = this.activeTeam.toString();
+        
+        // Single mode'u aktif yap ve formu göster
+        this.switchAddMode('single');
+        this.showModal('addPlayerModal');
+    }
+
+    switchAddMode(mode) {
+        // Tab durumunu güncelle
+        document.querySelectorAll('.add-mode-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+        
+        // Form görünümünü değiştir
+        const singleForm = document.getElementById('addPlayerForm');
+        const bulkForm = document.getElementById('addBulkPlayersForm');
+        
+        if (mode === 'single') {
+            singleForm.style.display = 'block';
+            bulkForm.style.display = 'none';
+            // Tekli form için aktif takımı seç
+            document.getElementById('playerTeam').value = this.activeTeam.toString();
+        } else {
+            singleForm.style.display = 'none';
+            bulkForm.style.display = 'block';
+            // Toplu form için aktif takımı seç
+            document.getElementById('bulkPlayerTeam').value = this.activeTeam.toString();
+            // Önizlemeyi gizle
+            document.getElementById('bulkPreview').style.display = 'none';
+        }
+    }
+
+    previewBulkPlayers() {
+        const textarea = document.getElementById('bulkPlayerNames');
+        const teamSelect = document.getElementById('bulkPlayerTeam');
+        const preview = document.getElementById('bulkPreview');
+        const previewList = document.getElementById('previewList');
+        const previewSummary = document.getElementById('previewSummary');
+        
+        const playerNames = textarea.value
+            .split('\n')
+            .map(name => name.trim())
+            .filter(name => name.length > 0);
+        
+        if (playerNames.length === 0) {
+            alert('Lütfen en az bir oyuncu adı girin!');
+            return;
+        }
+        
+        const selectedTeam = parseInt(teamSelect.value);
+        const existingPlayerNames = this.players
+            .filter(p => p.isActive && p.team === selectedTeam)
+            .map(p => p.name.toLowerCase());
+        
+        // Preview listesini oluştur
+        previewList.innerHTML = '';
+        let validCount = 0;
+        let duplicateCount = 0;
+        
+        playerNames.forEach((name, index) => {
+            const item = document.createElement('div');
+            const isExisting = existingPlayerNames.includes(name.toLowerCase());
+            
+            if (isExisting) {
+                item.className = 'preview-item duplicate';
+                item.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>${name}</span>
+                    <small>(Zaten mevcut)</small>
+                `;
+                duplicateCount++;
+            } else {
+                item.className = 'preview-item valid';
+                item.innerHTML = `
+                    <i class="fas fa-check"></i>
+                    <span>${name}</span>
+                    <small>(Yeni oyuncu)</small>
+                `;
+                validCount++;
+            }
+            
+            previewList.appendChild(item);
+        });
+        
+        // Özet bilgileri
+        const teamName = selectedTeam === 1 ? '1. Takım' : '2. Takım';
+        previewSummary.innerHTML = `
+            <strong>📊 Özet:</strong><br>
+            • Toplam: ${playerNames.length} oyuncu<br>
+            • Eklenecek: ${validCount} yeni oyuncu<br>
+            • Atlanacak: ${duplicateCount} mevcut oyuncu<br>
+            • Hedef takım: ${teamName}
+        `;
+        
+        preview.style.display = 'block';
+    }
+
+    async addBulkPlayers() {
+        console.log('🚀 addBulkPlayers fonksiyonu çalıştı');
+        
+        const textarea = document.getElementById('bulkPlayerNames');
+        const teamSelect = document.getElementById('bulkPlayerTeam');
+        
+        console.log('📝 Textarea değeri:', textarea.value);
+        console.log('👥 Seçilen takım:', teamSelect.value);
+        
+        const playerNames = textarea.value
+            .split('\n')
+            .map(name => name.trim())
+            .filter(name => name.length > 0);
+        
+        console.log('📋 İşlenmiş oyuncu isimleri:', playerNames);
+        
+        if (playerNames.length === 0) {
+            alert('Lütfen en az bir oyuncu adı girin!');
+            return;
+        }
+        
+        const selectedTeam = parseInt(teamSelect.value);
+        const existingPlayerNames = this.players
+            .filter(p => p.isActive && p.team === selectedTeam)
+            .map(p => p.name.toLowerCase());
+        
+        console.log('👥 Mevcut oyuncular:', existingPlayerNames);
+        
+        // Sadece yeni oyuncuları filtrele
+        const newPlayerNames = playerNames.filter(name => 
+            !existingPlayerNames.includes(name.toLowerCase())
+        );
+        
+        console.log('✨ Eklenecek yeni oyuncular:', newPlayerNames);
+        
+        if (newPlayerNames.length === 0) {
+            alert('Tüm oyuncular zaten mevcut!');
+            return;
+        }
+        
+        // Confirm modal'ını hazırla ve göster
+        this.showBulkConfirmModal(newPlayerNames, selectedTeam);
+    }
+
+    showBulkConfirmModal(newPlayerNames, selectedTeam) {
+        const teamName = selectedTeam === 1 ? '1. Takım' : '2. Takım';
+        const duplicateCount = this.getBulkDuplicateCount();
+        
+        // Modal içeriğini güncelle
+        document.getElementById('confirmTitle').textContent = `${newPlayerNames.length} yeni oyuncu eklensin mi?`;
+        document.getElementById('confirmDescription').textContent = `Bu oyuncular ${teamName}'a eklenecek ve hemen değerlendirilebilir hale gelecek.`;
+        
+        // Detayları oluştur
+        const detailsDiv = document.getElementById('confirmDetails');
+        detailsDiv.innerHTML = `
+            <h5><i class="fas fa-list"></i> Eklenecek Oyuncular</h5>
+            <div class="confirm-player-list">
+                ${newPlayerNames.map(name => `
+                    <div class="confirm-player-item">
+                        <i class="fas fa-user-plus"></i>
+                        <span>${name}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="confirm-summary">
+                <i class="fas fa-info-circle"></i>
+                ${newPlayerNames.length} yeni oyuncu → ${teamName}
+                ${duplicateCount > 0 ? `<br><small>${duplicateCount} mevcut oyuncu atlandı</small>` : ''}
+            </div>
+        `;
+        
+        // Pending data'yı sakla
+        this.pendingBulkAddition = {
+            playerNames: newPlayerNames,
+            team: selectedTeam
+        };
+        
+        // Modal'ı göster
+        this.showModal('bulkConfirmModal');
+    }
+
+    getBulkDuplicateCount() {
+        const textarea = document.getElementById('bulkPlayerNames');
+        const teamSelect = document.getElementById('bulkPlayerTeam');
+        
+        const allNames = textarea.value
+            .split('\n')
+            .map(name => name.trim())
+            .filter(name => name.length > 0);
+        
+        const selectedTeam = parseInt(teamSelect.value);
+        const existingPlayerNames = this.players
+            .filter(p => p.isActive && p.team === selectedTeam)
+            .map(p => p.name.toLowerCase());
+        
+        const duplicates = allNames.filter(name => 
+            existingPlayerNames.includes(name.toLowerCase())
+        );
+        
+        return duplicates.length;
+    }
+
+    async processBulkAddition() {
+        if (!this.pendingBulkAddition) {
+            console.error('❌ Bekleyen toplu ekleme verisi bulunamadı!');
+            return;
+        }
+        
+        const { playerNames: newPlayerNames, team: selectedTeam } = this.pendingBulkAddition;
+        
+        console.log('✅ Kullanıcı onayladı, toplu ekleme başlıyor...', newPlayerNames);
+        
+        let addedCount = 0;
+        let errorCount = 0;
+        
+        // Confirmation modal'ını kapat
+        this.hideModal('bulkConfirmModal');
+        
+        // Loading göstergesi için buton durumunu değiştir
+        const submitBtn = document.querySelector('#addBulkPlayersForm button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ekleniyor...';
+        submitBtn.disabled = true;
+        
+        try {
+            // Her oyuncu için ayrı ayrı ekle
+            for (const playerName of newPlayerNames) {
+                try {
+                    console.log(`➕ ${playerName} ekleniyor...`);
+                    
+                    const newPlayer = {
+                        name: playerName,
+                        team: selectedTeam,
+                        totalRating: 0,
+                        evaluationCount: 0,
+                        averageRating: 0,
+                        lastEvaluationDate: '',
+                        isActive: true,
+                        createdAt: new Date().toISOString()
+                    };
+                    
+                    const playerId = await this.savePlayer(newPlayer);
+                    newPlayer.id = playerId;
+                    this.players.push(newPlayer);
+                    addedCount++;
+                    
+                    console.log(`✅ ${playerName} başarıyla eklendi (ID: ${playerId})`);
+                    
+                } catch (error) {
+                    console.error(`❌ ${playerName} eklenirken hata:`, error);
+                    errorCount++;
+                }
+            }
+            
+            console.log(`📊 Sonuç: ${addedCount} eklendi, ${errorCount} hata`);
+            
+            // UI'yi güncelle
+            this.renderPlayers();
+            this.updateTeamCounts();
+            this.hideModal('addPlayerModal');
+            
+            // Form'u temizle
+            const textarea = document.getElementById('bulkPlayerNames');
+            textarea.value = '';
+            document.getElementById('bulkPreview').style.display = 'none';
+            
+            // Pending data'yı temizle
+            this.pendingBulkAddition = null;
+            
+            // Sonuç mesajı
+            let message = `🎉 ${addedCount} oyuncu başarıyla eklendi!`;
+            if (errorCount > 0) {
+                message += ` (${errorCount} oyuncu eklenemedi)`;
+            }
+            this.showSuccessMessage(message);
+            
+        } finally {
+            // Buton durumunu eski haline getir
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     }
 }
 
@@ -685,8 +1023,31 @@ document.addEventListener('DOMContentLoaded', () => {
     new HalisahaApp();
 });
 
-// Add CSS for history modal
+// Add CSS for history modal and success message
 const historyStyles = `
+.success-message {
+    background: #4CAF50;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: var(--border-radius);
+    margin: 1rem 0;
+    text-align: center;
+    font-weight: 500;
+    animation: slideInDown 0.3s ease-out;
+    box-shadow: var(--shadow);
+}
+
+@keyframes slideInDown {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
 .evaluation-history-item {
     background: var(--gray-100);
     border-radius: var(--border-radius);
