@@ -1,3 +1,6 @@
+// Firebase imports
+import { db, collection, addDoc, getDocs, updateDoc, doc, query, orderBy } from './firebase-config.js';
+
 class HalisahaApp {
     constructor() {
         // Google Sheets Configuration
@@ -14,6 +17,9 @@ class HalisahaApp {
         this.evaluations = [];
         this.weeklyPlayers = [];
         this.currentPlayer = null;
+        
+        // Firebase Configuration
+        this.db = db;
         
         this.init();
     }
@@ -83,59 +89,91 @@ class HalisahaApp {
         return stored ? JSON.parse(stored) : [];
     }
 
+    // Firebase Methods
     async loadData() {
         try {
+            console.log('Firebase\'den veri yükleniyor...');
+            
             // Load players
-            const playersData = await this.makeAPIRequest(this.SHEET_RANGES.players);
-            this.players = playersData.slice(1).map((row, index) => ({
-                id: index + 1,
-                name: row[0] || '',
-                position: row[1] || '',
-                totalRating: parseFloat(row[2]) || 0,
-                evaluationCount: parseInt(row[3]) || 0,
-                averageRating: parseFloat(row[4]) || 0,
-                lastEvaluationDate: row[5] || '',
-                isActive: row[6] !== 'false'
-            }));
+            const playersSnapshot = await getDocs(collection(this.db, 'players'));
+            this.players = [];
+            playersSnapshot.forEach((doc) => {
+                this.players.push({ id: doc.id, ...doc.data() });
+            });
 
             // Load evaluations
-            const evaluationsData = await this.makeAPIRequest(this.SHEET_RANGES.evaluations);
-            this.evaluations = evaluationsData.slice(1).map((row, index) => ({
-                id: index + 1,
-                playerId: parseInt(row[0]) || 0,
-                playerName: row[1] || '',
-                passing: parseInt(row[2]) || 0,
-                defense: parseInt(row[3]) || 0,
-                attack: parseInt(row[4]) || 0,
-                stamina: parseInt(row[5]) || 0,
-                teamwork: parseInt(row[6]) || 0,
-                comment: row[7] || '',
-                date: row[8] || new Date().toISOString().split('T')[0]
-            }));
+            const evaluationsSnapshot = await getDocs(collection(this.db, 'evaluations'));
+            this.evaluations = [];
+            evaluationsSnapshot.forEach((doc) => {
+                this.evaluations.push({ id: doc.id, ...doc.data() });
+            });
 
             // Load weekly players
-            const weeklyData = await this.makeAPIRequest(this.SHEET_RANGES.weeklyPlayers);
-            this.weeklyPlayers = weeklyData.slice(1).map((row, index) => ({
-                id: index + 1,
-                playerId: parseInt(row[0]) || 0,
-                playerName: row[1] || '',
-                week: row[2] || '',
-                date: row[3] || ''
-            }));
+            const weeklySnapshot = await getDocs(collection(this.db, 'weeklyPlayers'));
+            this.weeklyPlayers = [];
+            weeklySnapshot.forEach((doc) => {
+                this.weeklyPlayers.push({ id: doc.id, ...doc.data() });
+            });
+
+            console.log(`Yüklenen veriler: ${this.players.length} oyuncu, ${this.evaluations.length} değerlendirme`);
 
         } catch (error) {
-            console.error('Data loading error:', error);
+            console.error('Firebase veri yükleme hatası:', error);
             this.initializeDefaultData();
         }
     }
 
+    async savePlayer(player) {
+        try {
+            const docRef = await addDoc(collection(this.db, 'players'), player);
+            console.log('Oyuncu Firebase\'e kaydedildi:', docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error('Firebase oyuncu kaydetme hatası:', error);
+            throw error;
+        }
+    }
+
+    async saveEvaluationToFirebase(evaluation) {
+        try {
+            const docRef = await addDoc(collection(this.db, 'evaluations'), evaluation);
+            console.log('Değerlendirme Firebase\'e kaydedildi:', docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error('Firebase değerlendirme kaydetme hatası:', error);
+            throw error;
+        }
+    }
+
+    async updatePlayerInFirebase(playerId, playerData) {
+        try {
+            await updateDoc(doc(this.db, 'players', playerId), playerData);
+            console.log('Oyuncu Firebase\'de güncellendi:', playerId);
+        } catch (error) {
+            console.error('Firebase oyuncu güncelleme hatası:', error);
+            throw error;
+        }
+    }
+
+    async saveWeeklyPlayer(weeklyPlayer) {
+        try {
+            const docRef = await addDoc(collection(this.db, 'weeklyPlayers'), weeklyPlayer);
+            console.log('Haftanın oyuncusu Firebase\'e kaydedildi:', docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error('Firebase haftalık oyuncu kaydetme hatası:', error);
+            throw error;
+        }
+    }
+
     initializeDefaultData() {
-        // Demo veriler
+        // Demo veriler - Firebase boşsa varsayılan veriler
         if (this.players.length === 0) {
+            console.log('Demo veriler yükleniyor...');
             this.players = [
-                { id: 1, name: 'Ahmet', position: 'Forvet', totalRating: 42, evaluationCount: 6, averageRating: 7.0, lastEvaluationDate: '2024-01-15', isActive: true },
-                { id: 2, name: 'Mehmet', position: 'Defans', totalRating: 38, evaluationCount: 5, averageRating: 7.6, lastEvaluationDate: '2024-01-14', isActive: true },
-                { id: 3, name: 'Can', position: 'Orta Saha', totalRating: 45, evaluationCount: 6, averageRating: 7.5, lastEvaluationDate: '2024-01-15', isActive: true }
+                { id: 'demo1', name: 'Ahmet', position: 'Forvet', totalRating: 42, evaluationCount: 6, averageRating: 7.0, lastEvaluationDate: '2024-01-15', isActive: true },
+                { id: 'demo2', name: 'Mehmet', position: 'Defans', totalRating: 38, evaluationCount: 5, averageRating: 7.6, lastEvaluationDate: '2024-01-14', isActive: true },
+                { id: 'demo3', name: 'Can', position: 'Orta Saha', totalRating: 45, evaluationCount: 6, averageRating: 7.5, lastEvaluationDate: '2024-01-15', isActive: true }
             ];
         }
     }
@@ -220,22 +258,32 @@ class HalisahaApp {
         }
 
         const newPlayer = {
-            id: this.players.length + 1,
             name: playerName,
             position: playerPosition,
             totalRating: 0,
             evaluationCount: 0,
             averageRating: 0,
             lastEvaluationDate: '',
-            isActive: true
+            isActive: true,
+            createdAt: new Date().toISOString()
         };
 
-        this.players.push(newPlayer);
-        await this.updateSheet('addPlayer', { player: newPlayer });
-        this.renderPlayers();
-        this.hideModal('addPlayerModal');
-        document.getElementById('addPlayerForm').reset();
-        this.showSuccessMessage('Oyuncu başarıyla eklendi!');
+        try {
+            // Firebase'e kaydet
+            const playerId = await this.savePlayer(newPlayer);
+            
+            // Local array'e ekle
+            newPlayer.id = playerId;
+            this.players.push(newPlayer);
+            
+            this.renderPlayers();
+            this.hideModal('addPlayerModal');
+            document.getElementById('addPlayerForm').reset();
+            this.showSuccessMessage('Oyuncu başarıyla eklendi!');
+        } catch (error) {
+            console.error('Oyuncu ekleme hatası:', error);
+            alert('Oyuncu eklenirken hata oluştu. Tekrar deneyin.');
+        }
     }
 
     renderPlayers() {
@@ -354,7 +402,6 @@ class HalisahaApp {
 
         const formData = new FormData(document.getElementById('evaluationForm'));
         const evaluation = {
-            id: this.evaluations.length + 1,
             playerId: this.currentPlayer.id,
             playerName: this.currentPlayer.name,
             passing: parseInt(formData.get('passing')),
@@ -363,31 +410,45 @@ class HalisahaApp {
             stamina: parseInt(formData.get('stamina')),
             teamwork: parseInt(formData.get('teamwork')),
             comment: formData.get('comment'),
-            date: new Date().toISOString().split('T')[0]
+            date: new Date().toISOString().split('T')[0],
+            createdAt: new Date().toISOString()
         };
 
         // Calculate overall rating
         const overallRating = (evaluation.passing + evaluation.defense + evaluation.attack + 
                               evaluation.stamina + evaluation.teamwork) / 5;
 
-        this.evaluations.push(evaluation);
-        
-        // Update player stats
-        const player = this.players.find(p => p.id === this.currentPlayer.id);
-        if (player) {
-            player.totalRating += overallRating;
-            player.evaluationCount += 1;
-            player.averageRating = player.totalRating / player.evaluationCount;
-            player.lastEvaluationDate = evaluation.date;
+        try {
+            // Firebase'e değerlendirme kaydet
+            const evaluationId = await this.saveEvaluationToFirebase(evaluation);
+            evaluation.id = evaluationId;
+            this.evaluations.push(evaluation);
+            
+            // Update player stats
+            const player = this.players.find(p => p.id === this.currentPlayer.id);
+            if (player) {
+                player.totalRating += overallRating;
+                player.evaluationCount += 1;
+                player.averageRating = player.totalRating / player.evaluationCount;
+                player.lastEvaluationDate = evaluation.date;
+                
+                // Firebase'de oyuncu güncelle
+                await this.updatePlayerInFirebase(player.id, {
+                    totalRating: player.totalRating,
+                    evaluationCount: player.evaluationCount,
+                    averageRating: player.averageRating,
+                    lastEvaluationDate: player.lastEvaluationDate
+                });
+            }
+            
+            this.renderPlayers();
+            this.renderStats();
+            this.hideEvaluationForm();
+            this.showSuccessMessage('Değerlendirme başarıyla kaydedildi!');
+        } catch (error) {
+            console.error('Değerlendirme kaydetme hatası:', error);
+            alert('Değerlendirme kaydedilirken hata oluştu. Tekrar deneyin.');
         }
-
-        await this.updateSheet('addEvaluation', { evaluation: evaluation });
-        await this.updateSheet('updatePlayer', { player: player });
-        
-        this.renderPlayers();
-        this.renderStats();
-        this.hideEvaluationForm();
-        this.showSuccessMessage('Değerlendirme başarıyla kaydedildi!');
     }
 
     showPlayerHistory(player) {
@@ -509,22 +570,29 @@ class HalisahaApp {
         }
 
         const weeklyPlayer = {
-            id: this.weeklyPlayers.length + 1,
             playerId: player.id,
             playerName: player.name,
             week: currentWeek,
             date: new Date().toISOString().split('T')[0],
-            averageRating: player.averageRating
+            averageRating: player.averageRating,
+            createdAt: new Date().toISOString()
         };
 
-        this.weeklyPlayers.push(weeklyPlayer);
-        await this.updateSheet('addWeeklyPlayer', { weeklyPlayer: weeklyPlayer });
-        
-        this.renderWeeklyPlayer();
-        this.hideModal('weeklyPlayerModal');
-        this.showSuccessMessage(
-            `🏆 ${player.name} haftanın oyuncusu seçildi! (${player.averageRating.toFixed(1)}/10 ortalama)`
-        );
+        try {
+            // Firebase'e kaydet
+            const weeklyId = await this.saveWeeklyPlayer(weeklyPlayer);
+            weeklyPlayer.id = weeklyId;
+            this.weeklyPlayers.push(weeklyPlayer);
+            
+            this.renderWeeklyPlayer();
+            this.hideModal('weeklyPlayerModal');
+            this.showSuccessMessage(
+                `🏆 ${player.name} haftanın oyuncusu seçildi! (${player.averageRating.toFixed(1)}/10 ortalama)`
+            );
+        } catch (error) {
+            console.error('Haftanın oyuncusu seçme hatası:', error);
+            alert('Haftanın oyuncusu seçilirken hata oluştu. Tekrar deneyin.');
+        }
     }
 
     getCurrentWeekNumber() {
