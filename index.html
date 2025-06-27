@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halısaha Oyuncu Değerlendirme</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="container">
+                <h1><i class="fas fa-futbol"></i> Halısaha Takım</h1>
+                <p>Oyuncu Performans Değerlendirme Sistemi</p>
+            </div>
+        </header>
+
+        <div class="container">
+            <!-- Oyuncu Listesi -->
+            <section class="players-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-users"></i> Oyuncular</h2>
+                    <button class="btn btn-primary" id="addPlayerBtn">
+                        <i class="fas fa-plus"></i> Oyuncu Ekle
+                    </button>
+                </div>
+                <div class="players-grid" id="playersGrid">
+                    <!-- Oyuncular dinamik olarak buraya eklenecek -->
+                </div>
+            </section>
+
+            <!-- Değerlendirme Formu -->
+            <section class="evaluation-section" id="evaluationSection" style="display: none;">
+                <div class="section-header">
+                    <h2><i class="fas fa-star"></i> Oyuncu Değerlendirme</h2>
+                    <button class="btn btn-secondary" id="closeEvaluationBtn">
+                        <i class="fas fa-times"></i> Kapat
+                    </button>
+                </div>
+                <div class="evaluation-form">
+                    <div class="player-info">
+                        <h3 id="evaluatingPlayerName"></h3>
+                        <div class="rating-summary">
+                            <span class="current-rating" id="currentRating">0.0</span>
+                            <div class="stars" id="starDisplay"></div>
+                        </div>
+                    </div>
+                    
+                    <form id="evaluationForm">
+                        <div class="rating-categories">
+                            <div class="category">
+                                <label>Pas Kalitesi</label>
+                                <div class="rating-input">
+                                    <input type="range" name="passing" min="1" max="10" value="5" class="rating-slider">
+                                    <span class="rating-value">5</span>
+                                </div>
+                            </div>
+                            
+                            <div class="category">
+                                <label>Savunma</label>
+                                <div class="rating-input">
+                                    <input type="range" name="defense" min="1" max="10" value="5" class="rating-slider">
+                                    <span class="rating-value">5</span>
+                                </div>
+                            </div>
+                            
+                            <div class="category">
+                                <label>Hücum</label>
+                                <div class="rating-input">
+                                    <input type="range" name="attack" min="1" max="10" value="5" class="rating-slider">
+                                    <span class="rating-value">5</span>
+                                </div>
+                            </div>
+                            
+                            <div class="category">
+                                <label>Kondisyon</label>
+                                <div class="rating-input">
+                                    <input type="range" name="stamina" min="1" max="10" value="5" class="rating-slider">
+                                    <span class="rating-value">5</span>
+                                </div>
+                            </div>
+                            
+                            <div class="category">
+                                <label>Takım Oyunu</label>
+                                <div class="rating-input">
+                                    <input type="range" name="teamwork" min="1" max="10" value="5" class="rating-slider">
+                                    <span class="rating-value">5</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="comment-section">
+                            <label for="comment">Yorum</label>
+                            <textarea id="comment" name="comment" placeholder="Bugünkü performansı hakkında yorumun..."></textarea>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Değerlendirmeyi Kaydet
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Haftanın Oyuncusu -->
+            <section class="weekly-player-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-trophy"></i> Haftanın Oyuncusu</h2>
+                    <button class="btn btn-gold" id="selectWeeklyPlayerBtn">
+                        <i class="fas fa-crown"></i> Seç
+                    </button>
+                </div>
+                <div class="weekly-player-card" id="weeklyPlayerCard">
+                    <p>Henüz haftanın oyuncusu seçilmedi</p>
+                </div>
+            </section>
+
+            <!-- İstatistikler -->
+            <section class="stats-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-bar"></i> Takım İstatistikleri</h2>
+                </div>
+                <div class="stats-grid" id="statsGrid">
+                    <!-- İstatistikler dinamik olarak buraya eklenecek -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Modal: Oyuncu Ekleme -->
+        <div class="modal" id="addPlayerModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Yeni Oyuncu Ekle</h3>
+                    <button class="modal-close" id="closeAddPlayerModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="addPlayerForm">
+                    <div class="form-group">
+                        <label for="playerName">Oyuncu Adı</label>
+                        <input type="text" id="playerName" name="playerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="playerPosition">Pozisyon</label>
+                        <select id="playerPosition" name="playerPosition">
+                            <option value="Kaleci">Kaleci</option>
+                            <option value="Defans">Defans</option>
+                            <option value="Orta Saha">Orta Saha</option>
+                            <option value="Forvet">Forvet</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelAddPlayer">İptal</button>
+                        <button type="submit" class="btn btn-primary">Ekle</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal: Haftanın Oyuncusu Seçimi -->
+        <div class="modal" id="weeklyPlayerModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Haftanın Oyuncusunu Seç</h3>
+                    <button class="modal-close" id="closeWeeklyPlayerModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="weekly-selection-list" id="weeklySelectionList">
+                    <!-- Oyuncu listesi buraya eklenecek -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html> 
