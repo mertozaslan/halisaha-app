@@ -564,9 +564,38 @@ class HalisahaApp {
             return;
         }
 
+        // Kullanıcının bu hafta oy verip vermediğini kontrol et
+        const currentWeek = `${new Date().getFullYear()}-${this.getCurrentWeekNumber()}`;
+        const hasUserVotedThisWeek = this.weeklyPlayers.some(vote => 
+            vote.week === currentWeek && vote.voterSession === this.userSession
+        );
+
+        if (hasUserVotedThisWeek) {
+            list.innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <i class="fas fa-vote-yea" style="font-size: 3rem; color: var(--success-color); margin-bottom: 1rem;"></i>
+                    <h3 style="color: var(--gray-700); margin-bottom: 0.5rem;">Bu hafta zaten oy verdiniz!</h3>
+                    <p style="color: var(--gray-600);">Hafta sonunda sonuçları görebilirsiniz.</p>
+                </div>
+            `;
+            this.showModal('weeklyPlayerModal');
+            return;
+        }
+
+        // Her oyuncu için bu haftaki oy sayısını hesapla
+        const weeklyVotes = {};
+        this.weeklyPlayers
+            .filter(vote => vote.week === currentWeek)
+            .forEach(vote => {
+                weeklyVotes[vote.playerId] = (weeklyVotes[vote.playerId] || 0) + 1;
+            });
+
+        list.innerHTML = '<div class="voting-header"><h4><i class="fas fa-vote-yea"></i> Haftanın Oyuncusu için Oy Verin</h4><p>Bu hafta sadece bir oyuncuya oy verebilirsiniz.</p></div>';
+
         evaluatedPlayers.forEach((player, index) => {
+            const voteCount = weeklyVotes[player.id] || 0;
             const option = document.createElement('div');
-            option.className = 'weekly-player-option';
+            option.className = 'weekly-player-option voting-option';
             
             // Sıralama rozeti
             let badge = '';
@@ -583,16 +612,17 @@ class HalisahaApp {
                         <div class="player-stats">
                             <span class="rating">${player.averageRating.toFixed(1)}/10</span>
                             <span class="eval-count">${player.evaluationCount} değerlendirme</span>
+                            <span class="vote-count">${voteCount} oy</span>
                         </div>
                     </div>
                 </div>
-                <button class="btn btn-gold btn-small select-weekly-btn">
-                    <i class="fas fa-crown"></i> Seç
+                <button class="btn btn-primary btn-small vote-btn">
+                    <i class="fas fa-thumbs-up"></i> Oy Ver
                 </button>
             `;
 
-            option.querySelector('.select-weekly-btn').addEventListener('click', () => {
-                this.selectWeeklyPlayer(player);
+            option.querySelector('.vote-btn').addEventListener('click', () => {
+                this.voteForWeeklyPlayer(player);
             });
 
             list.appendChild(option);
@@ -601,86 +631,130 @@ class HalisahaApp {
         this.showModal('weeklyPlayerModal');
     }
 
-    async selectWeeklyPlayer(player) {
+    async voteForWeeklyPlayer(player) {
         const weekNumber = this.getCurrentWeekNumber();
         const currentWeek = `${new Date().getFullYear()}-${weekNumber}`;
         
-        // Aynı hafta için zaten seçilmiş oyuncu var mı kontrol et
-        const existingWeeklyPlayer = this.weeklyPlayers.find(wp => wp.week === currentWeek);
-        if (existingWeeklyPlayer) {
-            const confirmReplace = confirm(
-                `Bu hafta zaten ${existingWeeklyPlayer.playerName} seçildi. ${player.name} ile değiştirmek istiyor musun?`
-            );
-            if (!confirmReplace) return;
+        // Kullanıcının bu hafta zaten oy verip vermediğini kontrol et
+        const hasUserVotedThisWeek = this.weeklyPlayers.some(vote => 
+            vote.week === currentWeek && vote.voterSession === this.userSession
+        );
+
+        if (hasUserVotedThisWeek) {
+            alert('Bu hafta zaten oy verdiniz!');
+            return;
         }
 
-        const weeklyPlayer = {
+        const vote = {
             playerId: player.id,
             playerName: player.name,
             week: currentWeek,
             date: new Date().toISOString().split('T')[0],
-            averageRating: player.averageRating,
+            voterSession: this.userSession, // Oy veren kullanıcı
             createdAt: new Date().toISOString()
         };
 
         try {
-            // Firebase'e kaydet
-            const weeklyId = await this.saveWeeklyPlayer(weeklyPlayer);
-            weeklyPlayer.id = weeklyId;
-            this.weeklyPlayers.push(weeklyPlayer);
+            // Firebase'e oy kaydet
+            const voteId = await this.saveWeeklyPlayer(vote);
+            vote.id = voteId;
+            this.weeklyPlayers.push(vote);
             
             this.renderWeeklyPlayer();
             this.hideModal('weeklyPlayerModal');
             this.showSuccessMessage(
-                `🏆 ${player.name} haftanın oyuncusu seçildi! (${player.averageRating.toFixed(1)}/10 ortalama)`
+                `🗳️ ${player.name} için oyunuz kaydedildi! Hafta sonunda sonuçları görebilirsiniz.`
             );
         } catch (error) {
-            console.error('Haftanın oyuncusu seçme hatası:', error);
-            alert('Haftanın oyuncusu seçilirken hata oluştu. Tekrar deneyin.');
+            console.error('Oy verme hatası:', error);
+            alert('Oy verirken hata oluştu. Tekrar deneyin.');
         }
-    }
-
-    getCurrentWeekNumber() {
-        const date = new Date();
-        const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-        const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
-        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
     }
 
     renderWeeklyPlayer() {
         const card = document.getElementById('weeklyPlayerCard');
         const currentWeek = `${new Date().getFullYear()}-${this.getCurrentWeekNumber()}`;
-        const currentWeeklyPlayer = this.weeklyPlayers.find(wp => wp.week === currentWeek);
-
-        if (currentWeeklyPlayer) {
-            // Güncel oyuncu bilgisini al (ortalama değişmiş olabilir)
-            const playerData = this.players.find(p => p.id === currentWeeklyPlayer.playerId);
-            const currentRating = playerData ? playerData.averageRating : currentWeeklyPlayer.averageRating;
-            const teamBadge = playerData ? `${playerData.team}. Takım` : '';
-            const teamClass = playerData ? (playerData.team === 1 ? 'team-1' : 'team-2') : '';
-            
-            card.innerHTML = `
-                <div class="weekly-player-info">
-                    <div class="player-header">
-                        <h3><i class="fas fa-crown"></i> ${currentWeeklyPlayer.playerName}</h3>
-                        <span class="team-badge ${teamClass}">${teamBadge}</span>
-                    </div>
-                    <p class="weekly-title">Bu Haftanın Oyuncusu</p>
-                    <div class="weekly-player-stats">
-                        <span class="weekly-rating">${currentRating ? currentRating.toFixed(1) : '0.0'}/10</span>
-                        <div class="weekly-stars">${this.generateStars(currentRating || 0)}</div>
-                    </div>
-                    <p class="weekly-date"><small><i class="fas fa-calendar"></i> ${currentWeeklyPlayer.date}</small></p>
-                </div>
-            `;
-        } else {
+        
+        // Bu haftaki tüm oyları al
+        const weeklyVotes = this.weeklyPlayers.filter(vote => vote.week === currentWeek);
+        
+        if (weeklyVotes.length === 0) {
             card.innerHTML = `
                 <div class="empty-state">
-                    <i class="fas fa-trophy"></i>
-                    <p>Henüz haftanın oyuncusu seçilmedi</p>
+                    <i class="fas fa-vote-yea"></i>
+                    <p>Henüz hiç oy verilmedi</p>
+                    <small>Haftanın oyuncusu için oy verin!</small>
                 </div>
             `;
+            return;
         }
+
+        // Oy sayılarını hesapla
+        const voteCounts = {};
+        weeklyVotes.forEach(vote => {
+            voteCounts[vote.playerId] = (voteCounts[vote.playerId] || 0) + 1;
+        });
+
+        // En çok oy alan oyuncuyu bul
+        let winnerPlayerId = null;
+        let maxVotes = 0;
+        Object.entries(voteCounts).forEach(([playerId, voteCount]) => {
+            if (voteCount > maxVotes) {
+                maxVotes = voteCount;
+                winnerPlayerId = playerId;
+            }
+        });
+
+        if (!winnerPlayerId) {
+            card.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-vote-yea"></i>
+                    <p>Henüz hiç oy verilmedi</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Kazanan oyuncunun bilgilerini al
+        const winnerPlayer = this.players.find(p => p.id === winnerPlayerId);
+        if (!winnerPlayer) return;
+
+        const totalVotes = weeklyVotes.length;
+        const winnerVotes = voteCounts[winnerPlayerId];
+        const winnerPercentage = ((winnerVotes / totalVotes) * 100).toFixed(0);
+
+        // Kullanıcının oy verip vermediğini kontrol et
+        const hasUserVoted = weeklyVotes.some(vote => vote.voterSession === this.userSession);
+        const userVoteStatus = hasUserVoted ? 
+            '<span class="vote-status voted"><i class="fas fa-check"></i> Oy verdiniz</span>' :
+            '<span class="vote-status not-voted"><i class="fas fa-vote-yea"></i> Henüz oy vermediniz</span>';
+
+        const teamBadge = `${winnerPlayer.team}. Takım`;
+        const teamClass = winnerPlayer.team === 1 ? 'team-1' : 'team-2';
+        
+        card.innerHTML = `
+            <div class="weekly-player-info">
+                <div class="player-header">
+                    <h3><i class="fas fa-crown"></i> ${winnerPlayer.name}</h3>
+                    <span class="team-badge ${teamClass}">${teamBadge}</span>
+                </div>
+                <p class="weekly-title">Bu Haftanın Lideri</p>
+                <div class="weekly-player-stats">
+                    <div class="vote-stats">
+                        <span class="vote-count">${winnerVotes} oy</span>
+                        <span class="vote-percentage">%${winnerPercentage}</span>
+                    </div>
+                    <div class="player-rating-info">
+                        <span class="weekly-rating">${winnerPlayer.averageRating.toFixed(1)}/10</span>
+                        <div class="weekly-stars">${this.generateStars(winnerPlayer.averageRating)}</div>
+                    </div>
+                </div>
+                <div class="vote-summary">
+                    <p><strong>Toplam ${totalVotes} oy</strong> verildi</p>
+                    ${userVoteStatus}
+                </div>
+            </div>
+        `;
     }
 
     showSuccessMessage(message) {
@@ -1012,6 +1086,13 @@ class HalisahaApp {
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
         }
+    }
+
+    getCurrentWeekNumber() {
+        const date = new Date();
+        const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+        const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+        return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
     }
 }
 

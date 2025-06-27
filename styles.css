@@ -1150,4 +1150,159 @@ body {
 
 .btn-success:focus {
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+}
+
+/* Voting System Styles */
+.voting-header {
+    padding: 1.5rem;
+    text-align: center;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: 1rem;
+}
+
+.voting-header h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.voting-header p {
+    color: var(--gray-600);
+    font-size: 0.9rem;
+}
+
+.voting-option {
+    border: 2px solid var(--gray-200);
+    transition: var(--transition);
+}
+
+.voting-option:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.player-stats .vote-count {
+    background: var(--primary-color);
+    color: var(--white);
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.vote-btn {
+    background: var(--primary-color);
+    color: var(--white);
+    font-weight: 600;
+}
+
+.vote-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+/* Weekly Player Card Voting Styles */
+.vote-stats {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.vote-stats .vote-count {
+    background: var(--gold-color);
+    color: var(--white);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.vote-stats .vote-count::before {
+    content: "🗳️";
+}
+
+.vote-percentage {
+    background: var(--success-color);
+    color: var(--white);
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius);
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.player-rating-info {
+    text-align: center;
+}
+
+.vote-summary {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: var(--gray-50);
+    border-radius: var(--border-radius);
+    text-align: center;
+}
+
+.vote-summary p {
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+.vote-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.vote-status.voted {
+    background: var(--success-color);
+    color: var(--white);
+}
+
+.vote-status.not-voted {
+    background: var(--warning-color);
+    color: var(--white);
+}
+
+/* Empty state updates */
+.empty-state small {
+    display: block;
+    margin-top: 0.5rem;
+    color: var(--gray-400);
+    font-size: 0.9rem;
+}
+
+/* Responsive voting styles */
+@media (max-width: 768px) {
+    .vote-stats {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .vote-stats .vote-count,
+    .vote-percentage {
+        font-size: 1rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .voting-header {
+        padding: 1rem;
+    }
+    
+    .vote-summary {
+        padding: 0.75rem;
+    }
 } 
