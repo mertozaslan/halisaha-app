@@ -3,7 +3,7 @@ class HalisahaApp {
         // Google Sheets Configuration
         this.SHEET_ID = '1upqhrZcw8BppgkytzUuzYjgNDJ-Y_B1K'; // Bu değeri kendi Google Sheets ID'nizle değiştirin
         this.API_KEY = 'AIzaSyB_cfuHruYola4wXJ6Rf66lOie0ebkevY8'; // Bu değeri kendi API Key'inizle değiştirin
-        this.WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyEFnr86gM9Dch_9cRlT6NnReXCE1li8-MJJnQdMTAsQrjUjjWwa9T9u1sw_Y4cSgRWaQ/exec'; // Google Apps Script Web App URL'i
+        this.WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw8lNyuaB3ve3X7lWDTyChI_slOtupd0W9RVSc4SlJ-cr4yVGtblS4yasw43SeNjc9c1g/exec'; // Google Apps Script Web App URL'i
         this.SHEET_RANGES = {
             players: 'Oyuncular!A:H',
             evaluations: 'Degerlendirmeler!A:I',
@@ -28,7 +28,6 @@ class HalisahaApp {
 
     // Google Sheets API Methods
     async makeAPIRequest(range) {
-        // Google Sheets API yerine tamamen Apps Script kullan
         try {
             const response = await fetch(this.WEB_APP_URL, {
                 method: 'POST',
@@ -41,11 +40,11 @@ class HalisahaApp {
                 })
             });
             
-            const data = await response.json();
-            if (data.success) {
-                return data.values || [];
+            const result = await response.json();
+            if (result.success) {
+                return result.data || [];
             } else {
-                throw new Error(data.error || 'API Error');
+                throw new Error(result.error || 'API Error');
             }
         } catch (error) {
             console.error('API Request Error:', error);
