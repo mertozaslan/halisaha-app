@@ -28,14 +28,27 @@ class HalisahaApp {
 
     // Google Sheets API Methods
     async makeAPIRequest(range) {
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.SHEET_ID}/values/${range}?key=${this.API_KEY}`;
+        // Google Sheets API yerine tamamen Apps Script kullan
         try {
-            const response = await fetch(url);
+            const response = await fetch(this.WEB_APP_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'getData',
+                    range: range
+                })
+            });
+            
             const data = await response.json();
-            return data.values || [];
+            if (data.success) {
+                return data.values || [];
+            } else {
+                throw new Error(data.error || 'API Error');
+            }
         } catch (error) {
             console.error('API Request Error:', error);
-            // Fallback to localStorage for demo
             return this.getLocalStorageData(range);
         }
     }

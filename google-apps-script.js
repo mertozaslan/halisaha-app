@@ -5,28 +5,52 @@ function doPost(e) {
     const ss = SpreadsheetApp.openById('1upqhrZcw8BppgkytzUuzYjgNDJ-Y_B1K');
     
     switch(data.action) {
+      case 'getData':
+        return getData(ss, data.range);
       case 'addPlayer':
-        addPlayer(ss, data.player);
-        break;
+        return addPlayer(ss, data.player);
       case 'addEvaluation':
-        addEvaluation(ss, data.evaluation);
-        break;
+        return addEvaluation(ss, data.evaluation);
       case 'updatePlayer':
-        updatePlayer(ss, data.player);
-        break;
+        return updatePlayer(ss, data.player);
       case 'addWeeklyPlayer':
-        addWeeklyPlayer(ss, data.weeklyPlayer);
-        break;
+        return addWeeklyPlayer(ss, data.weeklyPlayer);
+      default:
+        throw new Error('Unknown action: ' + data.action);
     }
     
+  } catch (error) {
+    console.error('Error in doPost:', error);
     return ContentService
-      .createTextOutput(JSON.stringify({success: true}))
+      .createTextOutput(JSON.stringify({
+        success: false, 
+        error: error.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function getData(ss, range) {
+  try {
+    const sheetName = range.split('!')[0];
+    const sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) {
+      throw new Error(`Sheet ${sheetName} not found`);
+    }
+    
+    const data = sheet.getDataRange().getValues();
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true, 
+        values: data
+      }))
       .setMimeType(ContentService.MimeType.JSON);
       
   } catch (error) {
-    return ContentService
-      .createTextOutput(JSON.stringify({error: error.toString()}))
-      .setMimeType(ContentService.MimeType.JSON);
+    console.error('Error in getData:', error);
+    throw error;
   }
 }
 
