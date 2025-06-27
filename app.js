@@ -3,7 +3,7 @@ class HalisahaApp {
         // Google Sheets Configuration
         this.SHEET_ID = '1upqhrZcw8BppgkytzUuzYjgNDJ-Y_B1K'; // Bu değeri kendi Google Sheets ID'nizle değiştirin
         this.API_KEY = 'AIzaSyB_cfuHruYola4wXJ6Rf66lOie0ebkevY8'; // Bu değeri kendi API Key'inizle değiştirin
-        this.WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw8lNyuaB3ve3X7lWDTyChI_slOtupd0W9RVSc4SlJ-cr4yVGtblS4yasw43SeNjc9c1g/exec'; // Google Apps Script Web App URL'i
+        this.WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyo_IQkZwC9IVO6Jul9fg8yCI5P9cSDDHQfQjOXKvHP9DccGV07woW3YAm537PBq7m5/exec'; // Google Apps Script Web App URL'i
         this.SHEET_RANGES = {
             players: 'Oyuncular!A:H',
             evaluations: 'Degerlendirmeler!A:I',
@@ -28,57 +28,51 @@ class HalisahaApp {
 
     // Google Sheets API Methods
     async makeAPIRequest(range) {
+        // CSV export kullanarak CORS bypass
+        const sheetName = range.split('!')[0];
+        const csvUrl = `https://docs.google.com/spreadsheets/d/${this.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
+        
         try {
-            const response = await fetch(this.WEB_APP_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: 'getData',
-                    range: range
-                })
-            });
-            
-            const result = await response.json();
-            if (result.success) {
-                return result.data || [];
-            } else {
-                throw new Error(result.error || 'API Error');
-            }
+            const response = await fetch(csvUrl);
+            const csvText = await response.text();
+            const rows = this.parseCSV(csvText);
+            return rows;
         } catch (error) {
-            console.error('API Request Error:', error);
+            console.error('CSV Request Error:', error);
             return this.getLocalStorageData(range);
         }
     }
 
+    parseCSV(csvText) {
+        const rows = [];
+        const lines = csvText.split('\n');
+        
+        for (const line of lines) {
+            if (line.trim()) {
+                // Basit CSV parse (quotes'ları handle eder)
+                const row = line.split(',').map(cell => 
+                    cell.replace(/^"|"$/g, '').replace(/""/g, '"')
+                );
+                rows.push(row);
+            }
+        }
+        return rows;
+    }
+
     async updateSheet(action, data) {
         try {
-            const response = await fetch(this.WEB_APP_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    action: action,
-                    ...data
-                })
-            });
+            console.log(`${action} işlemi localStorage'a kaydediliyor...`);
             
-            const result = await response.json();
-            if (result.success) {
-                console.log('Veri başarıyla Google Sheets\'e kaydedildi');
-                return true;
-            } else {
-                throw new Error(result.error || 'Bilinmeyen hata');
-            }
-        } catch (error) {
-            console.error('Google Sheets yazma hatası:', error);
-            // Fallback: localStorage'a kaydet
+            // localStorage'a kaydet
             const key = action;
             const existing = JSON.parse(localStorage.getItem(key) || '[]');
             existing.push(data);
             localStorage.setItem(key, JSON.stringify(existing));
+            
+            console.log('Veri başarıyla localStorage\'e kaydedildi');
+            return true;
+        } catch (error) {
+            console.error('LocalStorage yazma hatası:', error);
             return false;
         }
     }
