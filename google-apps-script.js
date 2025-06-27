@@ -2,7 +2,7 @@
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const ss = SpreadsheetApp.openById('YOUR_SHEET_ID');
+    const ss = SpreadsheetApp.openById('1upqhrZcw8BppgkytzUuzYjgNDJ-Y_B1K');
     
     switch(data.action) {
       case 'addPlayer':
