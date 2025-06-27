@@ -1,5 +1,5 @@
 // Firebase imports
-import { db, collection, addDoc, getDocs, updateDoc, doc, query, orderBy } from './firebase-config.js';
+import { db } from './firebase-config.js';
 
 class HalisahaApp {
     constructor() {
@@ -94,22 +94,22 @@ class HalisahaApp {
         try {
             console.log('Firebase\'den veri yükleniyor...');
             
-            // Load players
-            const playersSnapshot = await getDocs(collection(this.db, 'players'));
+            // Load players - compat API
+            const playersSnapshot = await this.db.collection('players').get();
             this.players = [];
             playersSnapshot.forEach((doc) => {
                 this.players.push({ id: doc.id, ...doc.data() });
             });
 
-            // Load evaluations
-            const evaluationsSnapshot = await getDocs(collection(this.db, 'evaluations'));
+            // Load evaluations - compat API
+            const evaluationsSnapshot = await this.db.collection('evaluations').get();
             this.evaluations = [];
             evaluationsSnapshot.forEach((doc) => {
                 this.evaluations.push({ id: doc.id, ...doc.data() });
             });
 
-            // Load weekly players
-            const weeklySnapshot = await getDocs(collection(this.db, 'weeklyPlayers'));
+            // Load weekly players - compat API
+            const weeklySnapshot = await this.db.collection('weeklyPlayers').get();
             this.weeklyPlayers = [];
             weeklySnapshot.forEach((doc) => {
                 this.weeklyPlayers.push({ id: doc.id, ...doc.data() });
@@ -125,7 +125,7 @@ class HalisahaApp {
 
     async savePlayer(player) {
         try {
-            const docRef = await addDoc(collection(this.db, 'players'), player);
+            const docRef = await this.db.collection('players').add(player);
             console.log('Oyuncu Firebase\'e kaydedildi:', docRef.id);
             return docRef.id;
         } catch (error) {
@@ -136,7 +136,7 @@ class HalisahaApp {
 
     async saveEvaluationToFirebase(evaluation) {
         try {
-            const docRef = await addDoc(collection(this.db, 'evaluations'), evaluation);
+            const docRef = await this.db.collection('evaluations').add(evaluation);
             console.log('Değerlendirme Firebase\'e kaydedildi:', docRef.id);
             return docRef.id;
         } catch (error) {
@@ -147,7 +147,7 @@ class HalisahaApp {
 
     async updatePlayerInFirebase(playerId, playerData) {
         try {
-            await updateDoc(doc(this.db, 'players', playerId), playerData);
+            await this.db.collection('players').doc(playerId).update(playerData);
             console.log('Oyuncu Firebase\'de güncellendi:', playerId);
         } catch (error) {
             console.error('Firebase oyuncu güncelleme hatası:', error);
@@ -157,7 +157,7 @@ class HalisahaApp {
 
     async saveWeeklyPlayer(weeklyPlayer) {
         try {
-            const docRef = await addDoc(collection(this.db, 'weeklyPlayers'), weeklyPlayer);
+            const docRef = await this.db.collection('weeklyPlayers').add(weeklyPlayer);
             console.log('Haftanın oyuncusu Firebase\'e kaydedildi:', docRef.id);
             return docRef.id;
         } catch (error) {
